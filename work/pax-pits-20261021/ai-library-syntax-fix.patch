@@ -1,0 +1,37 @@
+diff --git a/scripts/build.mjs b/scripts/build.mjs
+index 57dd227..e2fecfb 100644
+--- a/scripts/build.mjs
++++ b/scripts/build.mjs
+@@ -2,4 +2,4 @@ import {readFileSync,writeFileSync,mkdirSync,rmSync,cpSync,readdirSync,statSync}
+ import {join} from 'node:path';
+ const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/json','.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
+ const assets={};function walk(dir,prefix=''){for(const name of readdirSync(dir)){const p=join(dir,name),key=prefix+'/'+name;if(statSync(p).isDirectory())walk(p,key);else{const ext=name.slice(name.lastIndexOf('.')),binary=['.jpg','.png','.webp'].includes(ext);assets[key]={type:types[ext]||'application/octet-stream',encoding:binary?'base64':'utf8',body:readFileSync(p,binary?'base64':'utf8')}}}}
+-walk('web');rmSync('dist',{recursive:true,force:true});mkdirSync('dist/server',{recursive:true});mkdirSync('dist/.openai',{recursive:true});const server=readFileSync('worker/index.js','utf8').replace("import { ASSETS } from './assets.js';",'const ASSETS='+JSON.stringify(assets)+';').replace("import { meetings } from './meetings.js';",readFileSync('worker/meetings.js','utf8')).replace("import { safety, mcp } from './safety.js';",readFileSync('worker/safety.js','utf8'));writeFileSync('dist/server/index.js',server);cpSync('.openai/hosting.json','dist/.openai/hosting.json');cpSync('drizzle','dist/.openai/drizzle',{recursive:true});console.log('Worker, UI, images and migrations packaged');
++walk('web');rmSync('dist',{recursive:true,force:true});mkdirSync('dist/server',{recursive:true});mkdirSync('dist/.openai',{recursive:true});const server=readFileSync('worker/index.js','utf8').replace("import { ASSETS } from './assets.js';",()=> 'const ASSETS='+JSON.stringify(assets)+';').replace("import { meetings } from './meetings.js';",()=>readFileSync('worker/meetings.js','utf8')).replace("import { safety, mcp } from './safety.js';",()=>readFileSync('worker/safety.js','utf8'));writeFileSync('dist/server/index.js',server);cpSync('.openai/hosting.json','dist/.openai/hosting.json');cpSync('drizzle','dist/.openai/drizzle',{recursive:true});console.log('Worker, UI, images and migrations packaged');
+diff --git a/tests/served-assets.test.mjs b/tests/served-assets.test.mjs
+new file mode 100644
+index 0000000..b487e7a
+--- /dev/null
++++ b/tests/served-assets.test.mjs
+@@ -0,0 +1,21 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {readFileSync,readdirSync,statSync} from 'node:fs';
++import {join} from 'node:path';
++import {spawnSync} from 'node:child_process';
++import {createHash} from 'node:crypto';
++import {handle} from '../dist/server/index.js';
++function files(dir,prefix=''){const out=[];for(const name of readdirSync(dir)){const p=join(dir,name),route=prefix+'/'+name;if(statSync(p).isDirectory())out.push(...files(p,route));else out.push({file:p,route})}return out}
++test('built Worker serves every JS module byte-for-byte, including dollar replacement patterns',async()=>{
++ for(const {file,route} of files('web').filter(x=>x.file.endsWith('.js'))){
++  const expected=readFileSync(file,'utf8');const response=await handle(new Request('https://pits.test'+route),{});assert.equal(response.status,200,route);
++  const actual=await response.text();assert.equal(createHash('sha256').update(actual).digest('hex'),createHash('sha256').update(expected).digest('hex'),'The build must preserve bytes in '+route);
++ }
++});
++test('all shipped JS assets parse as modules after going through the real Worker response',async()=>{
++ for(const {route} of files('web').filter(x=>x.file.endsWith('.js'))){
++  const response=await handle(new Request('https://pits.test'+route),{});assert.match(response.headers.get('content-type'),/javascript/);
++  const check=spawnSync(process.execPath,['--input-type=module','--check'],{input:await response.text(),encoding:'utf8'});
++  assert.equal(check.status,0,route+': '+check.stderr.slice(-900));
++ }
++});
