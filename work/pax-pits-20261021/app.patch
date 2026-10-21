@@ -1,0 +1,206 @@
+diff --git a/OPERATIONS.md b/OPERATIONS.md
+new file mode 100644
+index 0000000..735cf1f
+--- /dev/null
++++ b/OPERATIONS.md
+@@ -0,0 +1,65 @@
++# PAX PITS / UNIVERSE — 2026-10-21
++
++## Architecture and source
++
++- PAX PITS APP: existing Sites project `appgprj_6a7b15df32d0819182d0d356b2b42728`; nurturing/play state in its own D1 and local device storage.
++- PAX PITS UNIVERSE: existing Sites project `appgprj_6ac53b4e971c8191aaf530e9dbceac92`; social messages, approvals and Pits AI conversation in its own D1; imported avatar raster files in existing R2.
++- Identity comes only from Sites dispatch's authenticated headers. Site-scoped IDs differ; no automatic user-data sharing across apps.
++- Existing GitHub `Pax4671/pits-seeds-of-memory` is a historical Pits memory project, not either live app's source. Sites repositories are the deployment source of truth. A GitHub review branch carries the exact changes and verification notes without changing the historical files.
++
++## Owner operation
++
++1. Open `/#me`, sign in and save your 18+ profile. Verified owner email in secret `PITS_OWNER_EMAIL` grants owner operations. Existing `ADMIN_EMAIL` is preserved.
++2. Open `/#admin`. Approve named test participants only. Reports and audit entries older than 180 days are lazily purged on the next throttled write operation. Every suspension, restoration and admission needs a written reason and creates an audit entry.
++3. Users may create rooms; invite recipients request membership; only the host can approve. Cap is 20 active people including host, 40 active + pending requests. Invite tokens expire after 7 days; only hashes are stored.
++4. Users report/block in a direct chat or group. Suspending stops sending, member lookup and group access. A suspended user can still export/delete their own account and appeal via `/#account`.
++5. Closed groups are not listed; recent 100 messages are shown. Existing older history remains stored until deletion; full-history pagination is not implemented.
++
++## Pits AI without an API bill
++
++`/#ai` stores the caller's message. The owner’s Site-created PAX PITS plugin supplies `open_pax_pits` and `reply_pax_pits` to ChatGPT. ChatGPT generates the actual reply and writes it back to the same authenticated user. No timer, background agent or canned reply is represented as an AI reply. No external API is called. A pending message does not receive an automatic in-site response just by opening the app. Personal plugin distribution to other users is unverified. Existing Pits Capsule is linked as a separate AI companion; it does not share history.
++
++Per-user limits: 20 AI submissions/day, 5 unanswered submissions, 30 saved replies/day. Existing image API endpoint now rejects before any provider request, even if a key exists. Existing secret keys are not changed.
++
++## Backups and recovery
++
++`/#admin` offers password-encrypted download (AES-256-GCM; PBKDF2-SHA256 310,000 iterations). Use a unique passphrase of 12+ characters. Owner chooses and keeps it; the application does not store it. D1 tables are read in one batch. R2 assets are fetched separately, so this is not an atomic D1/R2 snapshot. Stop participant writes before an operational snapshot. Export refuses any table above 5,000 rows or avatars totaling over 10 MB; it never labels a truncated file complete.
++
++Offline verification from the UNIVERSE repository:
++
++```
++node scripts/restore-isolated.mjs pits-encrypted-backup.json /private/new-isolated-restore
++```
++
++Supply the passphrase on stdin using a secure interactive input method. Never put it in command arguments or commit a backup. The program refuses existing output paths, applies the committed migrations to a brand-new SQLite file, restores records and avatar files, and prints counts only. It has no network code or production restore route. A real production recovery requires owner authorization and platform-supported database/storage import access. Keep snapshots encrypted, restrict local filesystem access, and remove copies after 30 days. Deletion of an account cannot recall files previously downloaded by an owner or recipient.
++
++Own-data export is separate, includes only one's own outgoing messages and AI history. Profile import restores editable display fields through the same authenticated profile endpoint; it cannot restore approval, suspension, messages or group membership. APP-side export/delete covers the nurturing cloud record and named local-storage keys. Existing billing-subscription references block automated deletion pending a billing check, to avoid deleting the information needed to stop recurring charges.
++
++## Cost controls and limits
++
++No paid AI API usage, new Cloudflare account, payment contract, app-store submission or paid upgrade was created. No Durable Object namespace is provisioned: text chat uses visible-tab polling every 15 seconds. Images: 5 MB/upload, 20 uploads/day globally, 200 stored images limit. Test admission stops at 200 member records. Content POST operations have a global 2,000/day guard plus existing per-user limits. These application guards do not cap anonymous request traffic, provider-account billing, read amplification, backups or operations shared with other Sites.
++
++Cloudflare direct-account published free tiers, checked 2026-10-21:
++
++| Product | Free allowance | Notes |
++| --- | --- | --- |
++| Workers | 100,000 requests/day, 10 ms CPU/invocation | Existing Sites is managed hosting; direct-account allowance is not a confirmed Sites entitlement. |
++| D1 | 5 million rows read/day; 100,000 written/day; 5 GB total | Indexed scans and index writes also count; account-wide totals matter. |
++| R2 Standard | 10 GB-month; 1 million class A and 10 million class B/month | Overages can be billable on the underlying account; no hard spending cap is confirmed for Sites. |
++| Durable Objects SQLite | 100,000 requests/day; 13,000 GB-s/day | Available Free; not used in this implementation. |
++
++Sources: https://developers.cloudflare.com/workers/platform/pricing/ ; https://developers.cloudflare.com/d1/platform/pricing/ ; https://developers.cloudflare.com/r2/pricing/ ; https://developers.cloudflare.com/durable-objects/platform/pricing/
++
++The connected Sites surface does not expose the underlying billing plan, a hard currency cap, or full production D1/R2 restore controls. Zero future hosting cost is therefore **not verified**. If direct Workers Paid is selected later, its base subscription and metered overages need separate explicit approval. No such selection was made.
++
++## Release gate: limited testing, no recruitment expansion
++
++Automated tests exercise simulated trusted Sites identities on real isolated SQLite with the complete migrations and actual built handlers. They do not prove that physical iPhones/Android devices work or that the production identity edge rejects forged headers. No supported browser-control skill was available in this environment; no browser QA or device installation was performed.
++
++Before general recruitment: two genuine participant identities must test sign-in, admission, unreadable third-party conversations, report/block, host approval/revocation, suspension, deletion, AI plugin connection and actual response return, iPhone Safari + Android Chrome PWA installation. Owner should create an actual encrypted production snapshot and verify a recovery copy. Full live recovery has not been done. E2EE is not implemented. Operating response staffing and legal review are not complete.
++
++18+ is self-attestation, not verified proof of age. This is a hobby/creation discussion service; it does not offer romantic matching. NPA describes the regulated internet opposite-sex introduction business using four cumulative requirements, so actual operation and public messaging must be reviewed before any dating-oriented extension. Self-attestation alone must not be represented as compliance with a regulated age-verification regime.
++
++PPC says overseas processing obligations depend on the service/provider arrangement and safeguards. Exact processing countries, processor/subprocessor terms and any necessary transfer consent remain to be confirmed with Sites; generic policy text is not proof of legal compliance. Public policy and support/appeal entry points were added, but the limited-test release is not certified worldwide legal compliance.
++
++Primary references: https://www.npa.go.jp/policy_area/no_cp/deai/regulatory.html ; https://www.ppc.go.jp/all_faq_index/faq1-q10-24/
+diff --git a/app/account/page.tsx b/app/account/page.tsx
+new file mode 100644
+index 0000000..eb8fb8c
+--- /dev/null
++++ b/app/account/page.tsx
+@@ -0,0 +1,17 @@
++"use client";
++import { useState } from "react";
++const allowedKeys = ["pax-pits-playable-001", "pax-pits-winter-001", "pits-individual-homes-v1", "pits-earned-collection-v2", "pits-factory-children-v1", "pits-selected-companion"];
++export default function AccountPage() {
++  const [status, setStatus] = useState("");
++  const [busy, setBusy] = useState(false);
++  const work = async (fn: () => Promise<void>) => { if (busy) return;setBusy(true);try { await fn(); } catch (e) { setStatus(e instanceof Error ? e.message : "処理できませんでした"); } finally { setBusy(false); } };
++  async function api(method: string) { const r = await fetch("/api/account", { method, cache: "no-store" });const d = await r.json();if (!r.ok) throw new Error(d.error || "接続できませんでした");return d; }
++  return <main style={{ maxWidth: 680, margin: "40px auto", padding: 24, color: "#eef6ff", background: "#122231", borderRadius: 20, lineHeight: 1.8 }}>
++    <a href="/" style={{ color: "inherit" }}>← PAX PITS</a><h1>アカウントとデータ</h1>
++    <p>育成アプリ本体のクラウド記録と、この端末の育成・旅の記録を管理します。SNS・AI会話の記録はUNIVERSE、Pits Capsuleでそれぞれ管理します。</p>
++    <p><a href="/signin-with-chatgpt?return_to=%2Faccount" target="_top" style={{ color: "inherit" }}>ChatGPTでログイン</a></p>
++    <button disabled={busy} onClick={() => work(async () => { const cloud = await api("GET");const local = Object.fromEntries(allowedKeys.map(k => [k, localStorage.getItem(k)]));const url = URL.createObjectURL(new Blob([JSON.stringify({ ...cloud, local, exportedAt: new Date().toISOString() })], { type: "application/json" }));const a = document.createElement("a");a.href = url;a.download = "pits-app-my-data.json";a.click();setTimeout(() => URL.revokeObjectURL(url), 1000);setStatus("保存しました。ファイルを安全に保管してください。"); })}>育成データを保存</button>
++    <p><button disabled={busy} onClick={() => work(async () => { if (prompt("本体のクラウド記録と、この端末の育成記録を削除します。DELETE と入力してください。") !== "DELETE") return;await api("DELETE");for (const k of allowedKeys) localStorage.removeItem(k);setStatus("本体のクラウド記録と、この端末の記録を削除しました。SNS・AI会話は各サービスのデータ管理から削除してください。"); })}>本体のアカウントとデータを削除</button></p>
++    <p role="status">{status}</p><p><a href="https://pax-pits-universe.tad-world.chatgpt.site/#account" style={{ color: "inherit" }}>SNS・Pits会話のデータ管理 →</a></p><p><a href="mailto:reoreo4671@gmail.com" style={{ color: "inherit" }}>運営への相談</a> · <a href="/legal/privacy" style={{ color: "inherit" }}>個人情報の扱い</a></p>
++  </main>;
++}
+diff --git a/app/api/account/route.ts b/app/api/account/route.ts
+new file mode 100644
+index 0000000..27a7d28
+--- /dev/null
++++ b/app/api/account/route.ts
+@@ -0,0 +1,22 @@
++import { eq } from "drizzle-orm";
++import { NextResponse } from "next/server";
++import { getChatGPTUser } from "../../chatgpt-auth";
++import { getDb } from "../../../db";
++import { pitsProfiles } from "../../../db/schema";
++export const dynamic = "force-dynamic";
++const privateHeaders = { "cache-control": "private, no-store" };
++export async function GET() {
++  const user = await getChatGPTUser();
++  if (!user) return NextResponse.json({ error: "ログインしてください" }, { status: 401, headers: privateHeaders });
++  const [profile] = await getDb().select().from(pitsProfiles).where(eq(pitsProfiles.ownerEmail, user.email)).limit(1);
++  return NextResponse.json({ format: "pits-app-own-data-v1", profile: profile ?? null }, { headers: privateHeaders });
++}
++export async function DELETE(request: Request) {
++  const user = await getChatGPTUser();
++  if (!user) return NextResponse.json({ error: "ログインしてください" }, { status: 401, headers: privateHeaders });
++  if (request.headers.get("origin") !== new URL(request.url).origin) return NextResponse.json({ error: "この画面から操作してください" }, { status: 403 });
++  const [profile] = await getDb().select().from(pitsProfiles).where(eq(pitsProfiles.ownerEmail, user.email)).limit(1);
++  if (profile?.stripeSubscriptionId) return NextResponse.json({ error: "契約の請求停止を確認する必要があります。サポートへご連絡ください。データ削除だけでは請求は停止しません。" }, { status: 409 });
++  await getDb().delete(pitsProfiles).where(eq(pitsProfiles.ownerEmail, user.email));
++  return NextResponse.json({ ok: true }, { headers: privateHeaders });
++}
+diff --git a/app/api/pits/route.ts b/app/api/pits/route.ts
+index 57996a0..906d673 100644
+--- a/app/api/pits/route.ts
++++ b/app/api/pits/route.ts
+@@ -108,13 +108,14 @@ export async function GET() {
+ 
+   return NextResponse.json({
+     profile: profile ? { ...profile, gameState: safeGameState(profile.gameState) } : null,
+-  });
++  }, { headers: { "cache-control": "private, no-store" } });
+ }
+ 
+ export async function PUT(request: Request) {
+   const user = await getChatGPTUser();
+   if (!user) return NextResponse.json({ error: "SIGN_IN_REQUIRED" }, { status: 401 });
+ 
++  if (request.headers.get("origin") !== new URL(request.url).origin) return NextResponse.json({ error: "FORBIDDEN_ORIGIN" }, { status: 403 });
+   const body = (await request.json().catch(() => ({}))) as ClientProfile;
+   const now = new Date().toISOString();
+   const db = getDb();
+@@ -174,5 +175,5 @@ export async function PUT(request: Request) {
+     .limit(1);
+   return NextResponse.json({
+     profile: profile ? { ...profile, gameState: safeGameState(profile.gameState) } : null,
+-  });
++  }, { headers: { "cache-control": "private, no-store" } });
+ }
+diff --git a/app/legal/privacy/page.tsx b/app/legal/privacy/page.tsx
+index c65ddee..1098fd7 100644
+--- a/app/legal/privacy/page.tsx
++++ b/app/legal/privacy/page.tsx
+@@ -5,7 +5,7 @@ export default function PrivacyPage() {
+     <LegalShell title="プライバシーポリシー">
+       <section className="legal-section">
+         <h2>1. 取得する情報</h2>
+-        <p>アカウントの氏名・メールアドレス、PITSにつけた名前、触れ方・回数、ゲーム進行、LUMI、部屋のアイテム、記憶カード、初回・最終利用日時、問い合わせ内容を取得します。現在、決済情報は取得していません。</p>
++        <p>アカウントの氏名・メールアドレス、PITSにつけた名前、触れ方・回数、ゲーム進行、LUMI、部屋のアイテム、記憶カード、初回・最終利用日時、問い合わせ内容を取得します。既存の決済連携を利用した場合は、契約・顧客識別子等を保存します。カード番号は本体では保持しません。</p>
+       </section>
+       <section className="legal-section">
+         <h2>2. 利用目的</h2>
+@@ -13,7 +13,7 @@ export default function PrivacyPage() {
+       </section>
+       <section className="legal-section">
+         <h2>3. 外部サービス</h2>
+-        <p>認証とホスティングにOpenAIのサービスを利用します。OpenAIは同社の規約とプライバシーポリシーに従って情報を取り扱います。現在、決済サービスは利用していません。</p>
++        <p>認証とホスティングにOpenAIのサービスを利用します。OpenAIは同社の規約とプライバシーポリシーに従って情報を取り扱います。既存の決済連携にはStripeを利用します。この更新で新規課金は開始しません。SNSとAI会話は別サービスのUNIVERSEまたはPits Capsuleで管理し、それぞれの個人情報の扱いを確認してください。</p>
+       </section>
+       <section className="legal-section">
+         <h2>4. 第三者提供</h2>
+@@ -25,7 +25,7 @@ export default function PrivacyPage() {
+       </section>
+       <section className="legal-section">
+         <h2>6. 開示・訂正・削除</h2>
+-        <p>ご本人からの開示、訂正、利用停止、削除等のご希望には、本人確認のうえ法令に従って対応します。</p>
++        <p>本体のデータ管理画面から、自分の記録の保存と削除ができます。契約識別子がある場合は、継続請求を残さないため運営への確認が必要です。ご本人からの開示、訂正、利用停止、削除等のご希望には、本人確認のうえ法令に従って対応します。</p>
+       </section>
+       <section className="legal-section">
+         <h2>7. お問い合わせ</h2>
+diff --git a/app/page.tsx b/app/page.tsx
+index 09a9c6a..395aaa4 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -649,8 +649,8 @@ export default function Home() {
+   return (
+     <main className={`pg-shell pg-screen-${screen}${isLaughing ? " is-laughing" : ""}`}>
+       <section className="pits-human-connect" aria-labelledby="pits-human-title">
+-        <div><span>PITS × REAL PEOPLE · 18+</span><h2 id="pits-human-title">Pitsといっしょに、人と話し合おう。</h2><p>ふたりの会話も、みんなの会議も。オーナーの相談やACADEMYの集まりに、招待リンクでつながる文字チャット。</p><small>会議は最大20人。部屋は複数つくれます。名前中心のシンプル表示も選べます。会話はUNIVERSEで開き、ログインと18歳以上のプロフィール保存が必要です。遊びの記録とは別管理です。音声・ビデオ通話はありません。</small></div>
+-        <div className="pits-human-actions"><a className="pits-talk-primary" href="https://pax-pits-universe.tad-world.chatgpt.site/#meetings">みんなの会議を開く →</a><a href="https://pax-pits-universe.tad-world.chatgpt.site/#chat">ふたりの会話</a><a href="https://pax-pits-universe.tad-world.chatgpt.site/#me">会話用のPitsを選ぶ</a></div>
++        <div><span>PITS × REAL PEOPLE · 18+</span><h2 id="pits-human-title">Pitsといっしょに、人と話し合おう。</h2><p>ふたりの会話も、みんなの会議も。オーナーの相談やACADEMYの集まりに、招待リンクでつながる文字チャット。</p><small>会議は最大20人。部屋は複数つくれます。名前中心のシンプル表示も選べます。会話はUNIVERSEで開き、ログインと18歳以上のプロフィール保存、運営の参加承認が必要です。会議への参加は主催者の承認制です。遊びの記録とは別管理です。音声・ビデオ通話はありません。</small></div>
++        <div className="pits-human-actions"><a className="pits-talk-primary" href="https://pax-pits-universe.tad-world.chatgpt.site/#meetings">みんなの会議を開く →</a><a href="https://pax-pits-universe.tad-world.chatgpt.site/#chat">ふたりの会話</a><a href="https://pax-pits-universe.tad-world.chatgpt.site/#me">会話用のPitsを選ぶ</a><a href="https://pax-pits-universe.tad-world.chatgpt.site/#ai">PitsとAI会話 · ChatGPT連携</a><a href="https://pax-pits-universe.tad-world.chatgpt.site/#admin">運営管理</a><a href="/account">アカウントとデータ</a></div>
+       </section>
+       <p className="pits-play-entry">GachaでPitsを迎える・育てる・旅する ↓</p>
+       <Ambient enabled={soundOn} mood={travelOpen?"stars":home.pet.sleep?"sleep":gameStatus==="playing"?"play":"room"} />
+diff --git a/tests/account-api.test.mjs b/tests/account-api.test.mjs
+new file mode 100644
+index 0000000..5a35dac
+--- /dev/null
++++ b/tests/account-api.test.mjs
+@@ -0,0 +1,5 @@
++import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync,readdirSync} from 'node:fs';
++import worker from '../dist/server/index.js';
++function dbFixture(){const db=new DatabaseSync(':memory:');for(const f of readdirSync('drizzle').filter(n=>n.endsWith('.sql')).sort())db.exec(readFileSync('drizzle/'+f,'utf8'));db.prepare('INSERT INTO pits_profiles(owner_email,pits_name) VALUES(?,?)').run('a@test.example','Alpha');db.prepare('INSERT INTO pits_profiles(owner_email,pits_name) VALUES(?,?)').run('b@test.example','Beta');const DB={prepare(sql){let args=[];const q={bind(...a){args=a;return q},async raw(){return db.prepare(sql).all(...args).map(r=>Object.values(r))},async all(){return {results:db.prepare(sql).all(...args)}},async first(){return db.prepare(sql).get(...args)||null},async run(){db.prepare(sql).run(...args);return {success:true,meta:{changes:1}}}};return q}};return {db,DB}}
++async function call(env,user,method='GET',origin='https://pits.test'){const r=await worker.fetch(new Request('https://pits.test/api/account',{method,headers:{origin,...(user?{'oai-authenticated-user-id':user,'oai-authenticated-user-email':user+'@test.example'}:{})}}),{DB:env.DB,ASSETS:{fetch:async()=>new Response('',{status:404})}},{waitUntil(){},passThroughOnException(){}});return {status:r.status,data:await r.json()}}
++test('built account API enforces identity, origin, per-user export/deletion and subscription guard',async()=>{const env=dbFixture();assert.equal((await call(env,null)).status,401);assert.equal((await call(env,'a')).data.profile.pitsName,'Alpha');assert.equal((await call(env,'b')).data.profile.pitsName,'Beta');assert.equal((await call(env,'a','DELETE','https://evil.test')).status,403);env.db.prepare('UPDATE pits_profiles SET stripe_subscription_id=? WHERE owner_email=?').run('sub_fixture','a@test.example');assert.equal((await call(env,'a','DELETE')).status,409);env.db.prepare('UPDATE pits_profiles SET stripe_subscription_id=NULL WHERE owner_email=?').run('a@test.example');assert.equal((await call(env,'a','DELETE')).status,200);assert.equal((await call(env,'a')).data.profile,null);assert.equal((await call(env,'b')).data.profile.pitsName,'Beta')});
